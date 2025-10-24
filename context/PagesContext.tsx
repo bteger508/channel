@@ -1,24 +1,26 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import type { UpdatePage, Update, ReactionType } from '@/types';
+import { createContext, useContext, useCallback, ReactNode } from 'react';
+import type { UpdatePage, ReactionType } from '@/types';
 import { validatePageTitle, validateUpdateContent, sanitizeText } from '@/lib/validation';
+import * as db from '@/lib/database';
 
 interface PagesContextType {
-  pages: Record<string, UpdatePage>;
-  createPage: (title: string) => { success: boolean; pageId?: string; error?: string };
-  getPage: (id: string) => UpdatePage | undefined;
-  postUpdate: (pageId: string, content: string) => { success: boolean; error?: string };
-  addReaction: (pageId: string, updateId: string, reactionType: ReactionType) => void;
-  removeReaction: (pageId: string, updateId: string, reactionType: ReactionType) => void;
+  createPage: (title: string) => Promise<{ success: boolean; pageId?: string; error?: string }>;
+  getPage: (id: string) => Promise<{ success: boolean; page?: UpdatePage; error?: string }>;
+  postUpdate: (pageId: string, content: string) => Promise<{ success: boolean; error?: string }>;
+  addReaction: (pageId: string, updateId: string, reactionType: ReactionType) => Promise<void>;
+  removeReaction: (pageId: string, updateId: string, reactionType: ReactionType) => Promise<void>;
 }
 
 const PagesContext = createContext<PagesContextType | undefined>(undefined);
 
 export function PagesProvider({ children }: { children: ReactNode }) {
-  const [pages, setPages] = useState<Record<string, UpdatePage>>({});
+  // ============================================
+  // SUPABASE IMPLEMENTATION
+  // ============================================
 
-  const createPage = useCallback((title: string): { success: boolean; pageId?: string; error?: string } => {
+  const createPage = useCallback(async (title: string): Promise<{ success: boolean; pageId?: string; error?: string }> => {
     // Validate title
     const validation = validatePageTitle(title);
     if (!validation.valid) {
@@ -26,27 +28,23 @@ export function PagesProvider({ children }: { children: ReactNode }) {
     }
 
     const sanitizedTitle = sanitizeText(title);
-    const id = generateId();
-    const newPage: UpdatePage = {
-      id,
-      title: sanitizedTitle,
-      createdAt: new Date(),
-      updates: [],
-    };
+    const id = db.generateId();
 
-    setPages(prev => ({
-      ...prev,
-      [id]: newPage,
-    }));
+    // Insert into database
+    const result = await db.insertPage(id, sanitizedTitle);
+
+    if (!result.success) {
+      return { success: false, error: result.error };
+    }
 
     return { success: true, pageId: id };
   }, []);
 
-  const getPage = useCallback((id: string): UpdatePage | undefined => {
-    return pages[id];
-  }, [pages]);
+  const getPage = useCallback(async (id: string): Promise<{ success: boolean; page?: UpdatePage; error?: string }> => {
+    return await db.fetchPage(id);
+  }, []);
 
-  const postUpdate = useCallback((pageId: string, content: string): { success: boolean; error?: string } => {
+  const postUpdate = useCallback(async (pageId: string, content: string): Promise<{ success: boolean; error?: string }> => {
     // Validate content
     const validation = validateUpdateContent(content);
     if (!validation.valid) {
@@ -54,83 +52,23 @@ export function PagesProvider({ children }: { children: ReactNode }) {
     }
 
     const sanitizedContent = sanitizeText(content);
-    const newUpdate: Update = {
-      id: generateId(),
-      content: sanitizedContent,
-      timestamp: new Date(),
-      reactions: { heart: 0, pray: 0, thumbsup: 0 },
-    };
+    const id = db.generateId();
 
-    setPages(prev => {
-      const page = prev[pageId];
-      if (!page) {
-        return prev;
-      }
-
-      return {
-        ...prev,
-        [pageId]: {
-          ...page,
-          updates: [newUpdate, ...page.updates],
-        },
-      };
-    });
-
-    return { success: true };
+    // Insert into database
+    return await db.insertUpdate(id, pageId, sanitizedContent);
   }, []);
 
-  const addReaction = useCallback((pageId: string, updateId: string, reactionType: ReactionType) => {
-    setPages(prev => {
-      const page = prev[pageId];
-      if (!page) return prev;
-
-      return {
-        ...prev,
-        [pageId]: {
-          ...page,
-          updates: page.updates.map(update => {
-            if (update.id !== updateId) return update;
-            return {
-              ...update,
-              reactions: {
-                ...update.reactions,
-                [reactionType]: update.reactions[reactionType] + 1,
-              },
-            };
-          }),
-        },
-      };
-    });
+  const addReaction = useCallback(async (pageId: string, updateId: string, reactionType: ReactionType): Promise<void> => {
+    await db.incrementReaction(updateId, reactionType);
   }, []);
 
-  const removeReaction = useCallback((pageId: string, updateId: string, reactionType: ReactionType) => {
-    setPages(prev => {
-      const page = prev[pageId];
-      if (!page) return prev;
-
-      return {
-        ...prev,
-        [pageId]: {
-          ...page,
-          updates: page.updates.map(update => {
-            if (update.id !== updateId) return update;
-            return {
-              ...update,
-              reactions: {
-                ...update.reactions,
-                [reactionType]: Math.max(0, update.reactions[reactionType] - 1),
-              },
-            };
-          }),
-        },
-      };
-    });
+  const removeReaction = useCallback(async (pageId: string, updateId: string, reactionType: ReactionType): Promise<void> => {
+    await db.decrementReaction(updateId, reactionType);
   }, []);
 
   return (
     <PagesContext.Provider
       value={{
-        pages,
         createPage,
         getPage,
         postUpdate,
@@ -149,9 +87,4 @@ export function usePages() {
     throw new Error('usePages must be used within a PagesProvider');
   }
   return context;
-}
-
-// Helper function to generate unique IDs
-function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 }

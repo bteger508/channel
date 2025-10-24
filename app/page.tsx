@@ -16,24 +16,28 @@ export default function Home() {
   const { createPage } = usePages();
   const router = useRouter();
 
-  const handleCreatePage = (e: React.FormEvent) => {
+  const handleCreatePage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
 
     setIsCreating(true);
     setError('');
 
-    // Create the page and get the result
-    const result = createPage(title);
+    try {
+      // Create the page and get the result (now async)
+      const result = await createPage(title);
 
-    if (result.success && result.pageId) {
-      // Redirect to the new page
-      setTimeout(() => {
+      if (result.success && result.pageId) {
+        // Redirect to the new page
         router.push(`/${result.pageId}`);
-      }, 300);
-    } else {
-      // Show error
-      setError(result.error || 'Failed to create page');
+      } else {
+        // Show error
+        setError(result.error || 'Failed to create page');
+        setIsCreating(false);
+      }
+    } catch (err) {
+      console.error('Unexpected error creating page:', err);
+      setError('An unexpected error occurred. Please try again.');
       setIsCreating(false);
     }
   };

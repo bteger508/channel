@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/Card';
 import { Textarea } from '@/components/ui/Textarea';
 import { usePages } from '@/context/PagesContext';
 import { VALIDATION } from '@/lib/validation';
-import type { ReactionType } from '@/types';
+import type { ReactionType, UpdatePage } from '@/types';
 
 export default function UpdatePage() {
   const params = useParams();
@@ -16,20 +16,39 @@ export default function UpdatePage() {
   const pageId = params.pageId as string;
   const { getPage, postUpdate, addReaction, removeReaction } = usePages();
 
+  const [page, setPage] = useState<UpdatePage | null>(null);
+  const [isLoadingPage, setIsLoadingPage] = useState(true);
+  const [pageError, setPageError] = useState('');
   const [newUpdate, setNewUpdate] = useState('');
   const [isPosting, setIsPosting] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   const [userReactions, setUserReactions] = useState<Record<string, ReactionType | null>>({});
 
-  const page = getPage(pageId);
-
+  // Fetch page data on mount
   useEffect(() => {
-    if (!page) {
-      // Page not found - could redirect to home
-      // For now, we'll show a not found state
+    async function loadPage() {
+      setIsLoadingPage(true);
+      setPageError('');
+
+      try {
+        const result = await getPage(pageId);
+
+        if (result.success && result.page) {
+          setPage(result.page);
+        } else {
+          setPageError(result.error || 'Page not found');
+        }
+      } catch (err) {
+        console.error('Error loading page:', err);
+        setPageError('Failed to load page. Please try again.');
+      } finally {
+        setIsLoadingPage(false);
+      }
     }
-  }, [page]);
+
+    loadPage();
+  }, [pageId, getPage]);
 
   const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
 
@@ -43,47 +62,89 @@ export default function UpdatePage() {
     }
   };
 
-  const handlePostUpdate = (e: React.FormEvent) => {
+  const handlePostUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newUpdate.trim()) return;
+    if (!newUpdate.trim() || !page) return;
 
     setIsPosting(true);
     setError('');
 
-    const result = postUpdate(pageId, newUpdate);
+    try {
+      const result = await postUpdate(pageId, newUpdate);
 
-    if (result.success) {
-      setNewUpdate('');
-      setTimeout(() => {
-        setIsPosting(false);
-      }, 300);
-    } else {
-      setError(result.error || 'Failed to post update');
+      if (result.success) {
+        setNewUpdate('');
+        // Reload page to show new update
+        const pageResult = await getPage(pageId);
+        if (pageResult.success && pageResult.page) {
+          setPage(pageResult.page);
+        }
+      } else {
+        setError(result.error || 'Failed to post update');
+      }
+    } catch (err) {
+      console.error('Error posting update:', err);
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
       setIsPosting(false);
     }
   };
 
-  const handleReaction = (updateId: string, reactionType: ReactionType) => {
+  const handleReaction = async (updateId: string, reactionType: ReactionType) => {
+    if (!page) return;
+
     const currentReaction = userReactions[updateId];
 
-    // Remove previous reaction if exists
-    if (currentReaction) {
-      removeReaction(pageId, updateId, currentReaction);
-    }
+    // Optimistic update - update UI immediately
+    const wasToggleOff = currentReaction === reactionType;
+    setUserReactions({
+      ...userReactions,
+      [updateId]: wasToggleOff ? null : reactionType,
+    });
 
-    // Add new reaction if different from current
-    if (currentReaction !== reactionType) {
-      addReaction(pageId, updateId, reactionType);
+    // Update page state optimistically
+    setPage({
+      ...page,
+      updates: page.updates.map(update => {
+        if (update.id !== updateId) return update;
+
+        const newReactions = { ...update.reactions };
+
+        // Remove previous reaction
+        if (currentReaction) {
+          newReactions[currentReaction] = Math.max(0, newReactions[currentReaction] - 1);
+        }
+
+        // Add new reaction if not toggling off
+        if (!wasToggleOff) {
+          newReactions[reactionType] = newReactions[reactionType] + 1;
+        }
+
+        return { ...update, reactions: newReactions };
+      }),
+    });
+
+    try {
+      // Perform database updates
+      if (currentReaction) {
+        await removeReaction(pageId, updateId, currentReaction);
+      }
+
+      if (!wasToggleOff) {
+        await addReaction(pageId, updateId, reactionType);
+      }
+    } catch (err) {
+      console.error('Error updating reaction:', err);
+      // Revert optimistic update on error
       setUserReactions({
         ...userReactions,
-        [updateId]: reactionType,
+        [updateId]: currentReaction,
       });
-    } else {
-      // Toggle off if clicking the same reaction
-      setUserReactions({
-        ...userReactions,
-        [updateId]: null,
-      });
+      // Reload page to get accurate state
+      const pageResult = await getPage(pageId);
+      if (pageResult.success && pageResult.page) {
+        setPage(pageResult.page);
+      }
     }
   };
 
@@ -108,13 +169,26 @@ export default function UpdatePage() {
     { type: 'thumbsup', icon: ThumbsUp, emoji: '👍', color: 'text-reaction-thumbs hover:bg-reaction-thumbs/10', label: 'Support' },
   ];
 
-  if (!page) {
+  // Loading state
+  if (isLoadingPage) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center max-w-md px-4">
+          <div className="w-16 h-16 mx-auto mb-4 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted-foreground">Loading page...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (pageError || !page) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center max-w-md px-4">
           <h1 className="text-3xl font-bold mb-4">Page Not Found</h1>
           <p className="text-muted-foreground mb-6">
-            This update page doesn't exist or may have been removed.
+            {pageError || 'This update page doesn\'t exist or may have been removed.'}
           </p>
           <Button onClick={() => router.push('/')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
