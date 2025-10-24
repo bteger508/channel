@@ -2,12 +2,13 @@
 
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import type { UpdatePage, Update, ReactionType } from '@/types';
+import { validatePageTitle, validateUpdateContent, sanitizeText } from '@/lib/validation';
 
 interface PagesContextType {
   pages: Record<string, UpdatePage>;
-  createPage: (title: string) => string;
+  createPage: (title: string) => { success: boolean; pageId?: string; error?: string };
   getPage: (id: string) => UpdatePage | undefined;
-  postUpdate: (pageId: string, content: string) => void;
+  postUpdate: (pageId: string, content: string) => { success: boolean; error?: string };
   addReaction: (pageId: string, updateId: string, reactionType: ReactionType) => void;
   removeReaction: (pageId: string, updateId: string, reactionType: ReactionType) => void;
 }
@@ -17,11 +18,18 @@ const PagesContext = createContext<PagesContextType | undefined>(undefined);
 export function PagesProvider({ children }: { children: ReactNode }) {
   const [pages, setPages] = useState<Record<string, UpdatePage>>({});
 
-  const createPage = useCallback((title: string): string => {
+  const createPage = useCallback((title: string): { success: boolean; pageId?: string; error?: string } => {
+    // Validate title
+    const validation = validatePageTitle(title);
+    if (!validation.valid) {
+      return { success: false, error: validation.error };
+    }
+
+    const sanitizedTitle = sanitizeText(title);
     const id = generateId();
     const newPage: UpdatePage = {
       id,
-      title,
+      title: sanitizedTitle,
       createdAt: new Date(),
       updates: [],
     };
@@ -31,24 +39,33 @@ export function PagesProvider({ children }: { children: ReactNode }) {
       [id]: newPage,
     }));
 
-    return id;
+    return { success: true, pageId: id };
   }, []);
 
   const getPage = useCallback((id: string): UpdatePage | undefined => {
     return pages[id];
   }, [pages]);
 
-  const postUpdate = useCallback((pageId: string, content: string) => {
+  const postUpdate = useCallback((pageId: string, content: string): { success: boolean; error?: string } => {
+    // Validate content
+    const validation = validateUpdateContent(content);
+    if (!validation.valid) {
+      return { success: false, error: validation.error };
+    }
+
+    const sanitizedContent = sanitizeText(content);
     const newUpdate: Update = {
       id: generateId(),
-      content,
+      content: sanitizedContent,
       timestamp: new Date(),
       reactions: { heart: 0, pray: 0, thumbsup: 0 },
     };
 
     setPages(prev => {
       const page = prev[pageId];
-      if (!page) return prev;
+      if (!page) {
+        return prev;
+      }
 
       return {
         ...prev,
@@ -58,6 +75,8 @@ export function PagesProvider({ children }: { children: ReactNode }) {
         },
       };
     });
+
+    return { success: true };
   }, []);
 
   const addReaction = useCallback((pageId: string, updateId: string, reactionType: ReactionType) => {
@@ -134,5 +153,5 @@ export function usePages() {
 
 // Helper function to generate unique IDs
 function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 }

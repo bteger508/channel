@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Heart, HandHeart, ThumbsUp, Share2, Copy, Check, Clock, ArrowLeft } from 'lucide-react';
+import { Heart, HandHeart, ThumbsUp, Share2, Check, Clock, ArrowLeft, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Textarea } from '@/components/ui/Textarea';
 import { usePages } from '@/context/PagesContext';
+import { VALIDATION } from '@/lib/validation';
 import type { ReactionType } from '@/types';
 
 export default function UpdatePage() {
@@ -17,6 +18,7 @@ export default function UpdatePage() {
 
   const [newUpdate, setNewUpdate] = useState('');
   const [isPosting, setIsPosting] = useState(false);
+  const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   const [userReactions, setUserReactions] = useState<Record<string, ReactionType | null>>({});
 
@@ -46,12 +48,19 @@ export default function UpdatePage() {
     if (!newUpdate.trim()) return;
 
     setIsPosting(true);
-    postUpdate(pageId, newUpdate.trim());
-    setNewUpdate('');
+    setError('');
 
-    setTimeout(() => {
+    const result = postUpdate(pageId, newUpdate);
+
+    if (result.success) {
+      setNewUpdate('');
+      setTimeout(() => {
+        setIsPosting(false);
+      }, 300);
+    } else {
+      setError(result.error || 'Failed to post update');
       setIsPosting(false);
-    }, 300);
+    }
   };
 
   const handleReaction = (updateId: string, reactionType: ReactionType) => {
@@ -163,14 +172,24 @@ export default function UpdatePage() {
         {/* Post Update Form */}
         <Card variant="elevated" className="mb-8">
           <form onSubmit={handlePostUpdate} className="space-y-4">
-            <Textarea
-              placeholder="Share an update..."
-              value={newUpdate}
-              onChange={(e) => setNewUpdate(e.target.value)}
-              aria-label="Write your update"
-              className="min-h-[100px]"
-            />
-            <div className="flex justify-between items-center">
+            <div>
+              <Textarea
+                placeholder="Share an update..."
+                value={newUpdate}
+                onChange={(e) => {
+                  setNewUpdate(e.target.value);
+                  setError('');
+                }}
+                aria-label="Write your update"
+                className="min-h-[100px]"
+                maxLength={VALIDATION.UPDATE_CONTENT.MAX_LENGTH}
+                error={error}
+              />
+              <p className="text-xs text-muted-foreground mt-1.5 text-right">
+                {newUpdate.length}/{VALIDATION.UPDATE_CONTENT.MAX_LENGTH}
+              </p>
+            </div>
+            <div className="flex justify-between items-center flex-wrap gap-2">
               <p className="text-sm text-muted-foreground">
                 Updates are visible to anyone with the link
               </p>
@@ -267,6 +286,3 @@ export default function UpdatePage() {
     </div>
   );
 }
-
-// Import for icon that was missing
-import { MessageCircle } from 'lucide-react';

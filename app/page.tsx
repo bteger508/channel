@@ -7,10 +7,12 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { usePages } from '@/context/PagesContext';
+import { VALIDATION } from '@/lib/validation';
 
 export default function Home() {
   const [title, setTitle] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [error, setError] = useState('');
   const { createPage } = usePages();
   const router = useRouter();
 
@@ -19,14 +21,21 @@ export default function Home() {
     if (!title.trim()) return;
 
     setIsCreating(true);
+    setError('');
 
-    // Create the page and get the ID
-    const pageId = createPage(title.trim());
+    // Create the page and get the result
+    const result = createPage(title);
 
-    // Redirect to the new page
-    setTimeout(() => {
-      router.push(`/${pageId}`);
-    }, 300);
+    if (result.success && result.pageId) {
+      // Redirect to the new page
+      setTimeout(() => {
+        router.push(`/${result.pageId}`);
+      }, 300);
+    } else {
+      // Show error
+      setError(result.error || 'Failed to create page');
+      setIsCreating(false);
+    }
   };
 
   return (
@@ -58,15 +67,25 @@ export default function Home() {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleCreatePage} className="space-y-6">
-                <Input
-                  label="Page Title"
-                  placeholder="e.g., Sarah's Recovery Updates"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  required
-                  autoFocus
-                  aria-label="Enter a title for your update page"
-                />
+                <div>
+                  <Input
+                    label="Page Title"
+                    placeholder="e.g., Sarah's Recovery Updates"
+                    value={title}
+                    onChange={(e) => {
+                      setTitle(e.target.value);
+                      setError('');
+                    }}
+                    required
+                    autoFocus
+                    maxLength={VALIDATION.PAGE_TITLE.MAX_LENGTH}
+                    error={error}
+                    aria-label="Enter a title for your update page"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1.5 text-right">
+                    {title.length}/{VALIDATION.PAGE_TITLE.MAX_LENGTH}
+                  </p>
+                </div>
                 <Button
                   type="submit"
                   size="lg"
