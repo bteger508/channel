@@ -1,26 +1,32 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Heart, MessageCircle, Share2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { usePages } from '@/context/PagesContext';
 
 export default function Home() {
   const [title, setTitle] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const { createPage } = usePages();
+  const router = useRouter();
 
   const handleCreatePage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
 
     setIsCreating(true);
-    // TODO: Create page logic here
+
+    // Create the page and get the ID
+    const pageId = createPage(title.trim());
+
+    // Redirect to the new page
     setTimeout(() => {
-      console.log('Creating page:', title);
-      setIsCreating(false);
-      // Will redirect to /[pageId] once that's built
-    }, 1000);
+      router.push(`/${pageId}`);
+    }, 300);
   };
 
   return (
