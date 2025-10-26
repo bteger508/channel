@@ -14,23 +14,30 @@ import { dbPageToPage } from '@/types';
 /**
  * Insert a new update page into the database
  */
-export async function insertPage(id: string, title: string): Promise<{ success: boolean; error?: string }> {
+export async function insertPage(id: string, title: string): Promise<{ success: boolean; publishToken?: string; error?: string }> {
   try {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('update_pages')
       .insert({
         id,
         title,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      });
+      })
+      .select('publish_token')
+      .single();
 
     if (error) {
       console.error('Error inserting page:', error);
       return { success: false, error: error.message };
     }
 
-    return { success: true };
+    if (!data || typeof data.publish_token !== 'string') {
+      console.error('No publish token returned from database');
+      return { success: false, error: 'Failed to generate publish token' };
+    }
+
+    return { success: true, publishToken: data.publish_token };
   } catch (err) {
     console.error('Unexpected error inserting page:', err);
     return { success: false, error: 'Failed to create page. Please try again.' };
@@ -82,6 +89,39 @@ export async function fetchPage(pageId: string): Promise<{ success: boolean; pag
   } catch (err) {
     console.error('Unexpected error fetching page:', err);
     return { success: false, error: 'Failed to load page. Please try again.' };
+  }
+}
+
+/**
+ * Validate that a publish token matches the page
+ */
+export async function validatePublishToken(
+  pageId: string,
+  publishToken: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data, error } = await supabase
+      .from('update_pages')
+      .select('publish_token')
+      .eq('id', pageId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return { success: false, error: 'Page not found' };
+      }
+      console.error('Error validating publish token:', error);
+      return { success: false, error: error.message };
+    }
+
+    if (!data || data.publish_token !== publishToken) {
+      return { success: false, error: 'Invalid publish token' };
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error('Unexpected error validating publish token:', err);
+    return { success: false, error: 'Failed to validate publish token' };
   }
 }
 

@@ -11,6 +11,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS update_pages (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL CHECK (char_length(title) >= 1 AND char_length(title) <= 100),
+  publish_token TEXT NOT NULL DEFAULT encode(gen_random_bytes(32), 'base64'),
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
@@ -36,6 +37,7 @@ CREATE TABLE IF NOT EXISTS updates (
 CREATE INDEX IF NOT EXISTS updates_page_id_idx ON updates(page_id);
 CREATE INDEX IF NOT EXISTS updates_timestamp_idx ON updates(timestamp DESC);
 CREATE INDEX IF NOT EXISTS update_pages_created_at_idx ON update_pages(created_at DESC);
+CREATE INDEX IF NOT EXISTS update_pages_publish_token_idx ON update_pages(publish_token);
 
 -- ============================================
 -- ROW LEVEL SECURITY (RLS) Setup

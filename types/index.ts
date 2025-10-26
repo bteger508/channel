@@ -14,6 +14,7 @@ export interface Update {
 export interface UpdatePage {
   id: string;
   title: string;
+  publishToken?: string; // Only returned to creator, not included in public fetches
   createdAt: Date;
   updates: Update[];
 }
@@ -27,6 +28,7 @@ export type ReactionType = keyof Reactions;
 export interface DbUpdatePage {
   id: string;
   title: string;
+  publish_token: string;
   created_at: string; // ISO timestamp from Postgres
   updated_at: string;
 }

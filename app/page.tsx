@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Heart, MessageCircle, Share2, Sparkles } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Sparkles, Lock, Users, Copy, Check, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -13,6 +13,9 @@ export default function Home() {
   const [title, setTitle] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState('');
+  const [createdPage, setCreatedPage] = useState<{ pageId: string; publishToken: string } | null>(null);
+  const [copiedPublisher, setCopiedPublisher] = useState(false);
+  const [copiedSubscriber, setCopiedSubscriber] = useState(false);
   const { createPage } = usePages();
   const router = useRouter();
 
@@ -27,9 +30,9 @@ export default function Home() {
       // Create the page and get the result (now async)
       const result = await createPage(title);
 
-      if (result.success && result.pageId) {
-        // Redirect to the new page
-        router.push(`/${result.pageId}`);
+      if (result.success && result.pageId && result.publishToken) {
+        // Show success screen with both URLs
+        setCreatedPage({ pageId: result.pageId, publishToken: result.publishToken });
       } else {
         // Show error
         setError(result.error || 'Failed to create page');
@@ -41,6 +44,144 @@ export default function Home() {
       setIsCreating(false);
     }
   };
+
+  const handleCopyUrl = async (url: string, type: 'publisher' | 'subscriber') => {
+    try {
+      await navigator.clipboard.writeText(url);
+      if (type === 'publisher') {
+        setCopiedPublisher(true);
+        setTimeout(() => setCopiedPublisher(false), 2000);
+      } else {
+        setCopiedSubscriber(true);
+        setTimeout(() => setCopiedSubscriber(false), 2000);
+      }
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  const publisherUrl = createdPage
+    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/${createdPage.pageId}/publish?token=${createdPage.publishToken}`
+    : '';
+
+  const subscriberUrl = createdPage
+    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/${createdPage.pageId}`
+    : '';
+
+  // Success screen showing both URLs
+  if (createdPage) {
+    return (
+      <div className="min-h-screen bg-background">
+        <section className="container mx-auto px-4 py-16 md:py-24">
+          <div className="max-w-3xl mx-auto">
+            <div className="text-center mb-12">
+              <div className="w-16 h-16 mx-auto mb-4 bg-success/10 text-success rounded-full flex items-center justify-center">
+                <Check className="w-8 h-8" />
+              </div>
+              <h1 className="text-3xl md:text-4xl font-bold mb-4">Page Created!</h1>
+              <p className="text-muted-foreground text-lg">
+                Your update page is ready. Save your publisher link and share the subscriber link.
+              </p>
+            </div>
+
+            {/* Publisher URL */}
+            <Card variant="elevated" className="mb-6">
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-3 mb-4">
+                  <div className="w-10 h-10 bg-primary/10 text-primary rounded-full flex items-center justify-center shrink-0">
+                    <Lock className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-lg mb-1">Publisher URL (Keep Secret!)</h3>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Only you should have this link. Use it to post updates.
+                    </p>
+                    <div className="flex gap-2">
+                      <div className="flex-1 min-w-0 px-3 py-2 bg-muted rounded-lg text-sm font-mono truncate">
+                        {publisherUrl}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleCopyUrl(publisherUrl, 'publisher')}
+                        className="shrink-0"
+                      >
+                        {copiedPublisher ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Subscriber URL */}
+            <Card variant="elevated" className="mb-8">
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-3 mb-4">
+                  <div className="w-10 h-10 bg-accent/10 text-accent-foreground rounded-full flex items-center justify-center shrink-0">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-lg mb-1">Subscriber URL (Share This!)</h3>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Share this link with anyone who wants to follow your updates.
+                    </p>
+                    <div className="flex gap-2">
+                      <div className="flex-1 min-w-0 px-3 py-2 bg-muted rounded-lg text-sm font-mono truncate">
+                        {subscriberUrl}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleCopyUrl(subscriberUrl, 'subscriber')}
+                        className="shrink-0"
+                      >
+                        {copiedSubscriber ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Actions */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Button
+                size="lg"
+                className="flex-1"
+                onClick={() => router.push(publisherUrl)}
+              >
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Go to Publisher View
+              </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                className="flex-1"
+                onClick={() => {
+                  setCreatedPage(null);
+                  setTitle('');
+                  setIsCreating(false);
+                }}
+              >
+                Create Another Page
+              </Button>
+            </div>
+
+            {/* Warning */}
+            <Card className="mt-8 bg-warning/5 border-warning/20">
+              <CardContent className="pt-6">
+                <p className="text-sm text-warning-foreground">
+                  <strong>Important:</strong> Save your publisher URL now! You won't be able to retrieve it later.
+                  If you lose it, you won't be able to post new updates.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

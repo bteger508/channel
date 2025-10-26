@@ -6,9 +6,9 @@ import { validatePageTitle, validateUpdateContent, sanitizeText } from '@/lib/va
 import * as db from '@/lib/database';
 
 interface PagesContextType {
-  createPage: (title: string) => Promise<{ success: boolean; pageId?: string; error?: string }>;
+  createPage: (title: string) => Promise<{ success: boolean; pageId?: string; publishToken?: string; error?: string }>;
   getPage: (id: string) => Promise<{ success: boolean; page?: UpdatePage; error?: string }>;
-  postUpdate: (pageId: string, content: string) => Promise<{ success: boolean; error?: string }>;
+  postUpdate: (pageId: string, content: string, publishToken: string) => Promise<{ success: boolean; error?: string }>;
   addReaction: (pageId: string, updateId: string, reactionType: ReactionType) => Promise<void>;
   removeReaction: (pageId: string, updateId: string, reactionType: ReactionType) => Promise<void>;
 }
@@ -20,7 +20,7 @@ export function PagesProvider({ children }: { children: ReactNode }) {
   // SUPABASE IMPLEMENTATION
   // ============================================
 
-  const createPage = useCallback(async (title: string): Promise<{ success: boolean; pageId?: string; error?: string }> => {
+  const createPage = useCallback(async (title: string): Promise<{ success: boolean; pageId?: string; publishToken?: string; error?: string }> => {
     // Validate title
     const validation = validatePageTitle(title);
     if (!validation.valid) {
@@ -37,18 +37,24 @@ export function PagesProvider({ children }: { children: ReactNode }) {
       return { success: false, error: result.error };
     }
 
-    return { success: true, pageId: id };
+    return { success: true, pageId: id, publishToken: result.publishToken };
   }, []);
 
   const getPage = useCallback(async (id: string): Promise<{ success: boolean; page?: UpdatePage; error?: string }> => {
     return await db.fetchPage(id);
   }, []);
 
-  const postUpdate = useCallback(async (pageId: string, content: string): Promise<{ success: boolean; error?: string }> => {
+  const postUpdate = useCallback(async (pageId: string, content: string, publishToken: string): Promise<{ success: boolean; error?: string }> => {
     // Validate content
     const validation = validateUpdateContent(content);
     if (!validation.valid) {
       return { success: false, error: validation.error };
+    }
+
+    // Validate publish token
+    const tokenValidation = await db.validatePublishToken(pageId, publishToken);
+    if (!tokenValidation.success) {
+      return { success: false, error: 'You do not have permission to post updates to this page' };
     }
 
     const sanitizedContent = sanitizeText(content);

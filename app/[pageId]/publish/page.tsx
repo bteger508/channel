@@ -1,24 +1,59 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { Heart, HandHeart, ThumbsUp, Share2, Check, Clock, ArrowLeft, MessageCircle } from 'lucide-react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { Heart, HandHeart, ThumbsUp, Share2, Check, Clock, ArrowLeft, MessageCircle, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { Textarea } from '@/components/ui/Textarea';
 import { usePages } from '@/context/PagesContext';
+import { VALIDATION } from '@/lib/validation';
 import type { ReactionType, UpdatePage } from '@/types';
+import { validatePublishToken } from '@/lib/database';
 
-export default function UpdatePage() {
+export default function PublishPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const pageId = params.pageId as string;
-  const { getPage, addReaction, removeReaction } = usePages();
+  const token = searchParams.get('token');
+  const { getPage, postUpdate, addReaction, removeReaction } = usePages();
 
   const [page, setPage] = useState<UpdatePage | null>(null);
   const [isLoadingPage, setIsLoadingPage] = useState(true);
   const [pageError, setPageError] = useState('');
+  const [isValidatingToken, setIsValidatingToken] = useState(true);
+  const [tokenError, setTokenError] = useState('');
+  const [newUpdate, setNewUpdate] = useState('');
+  const [isPosting, setIsPosting] = useState(false);
+  const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   const [userReactions, setUserReactions] = useState<Record<string, ReactionType | null>>({});
+
+  // Validate token on mount
+  useEffect(() => {
+    async function validateToken() {
+      if (!token) {
+        setTokenError('No publish token provided');
+        setIsValidatingToken(false);
+        return;
+      }
+
+      try {
+        const result = await validatePublishToken(pageId, token);
+        if (!result.success) {
+          setTokenError(result.error || 'Invalid publish token');
+        }
+      } catch (err) {
+        console.error('Error validating token:', err);
+        setTokenError('Failed to validate publish token');
+      } finally {
+        setIsValidatingToken(false);
+      }
+    }
+
+    validateToken();
+  }, [pageId, token]);
 
   // Fetch page data on mount
   useEffect(() => {
@@ -45,15 +80,44 @@ export default function UpdatePage() {
     loadPage();
   }, [pageId, getPage]);
 
-  const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+  // Generate subscriber URL (without token)
+  const subscriberUrl = typeof window !== 'undefined' ? `${window.location.origin}/${pageId}` : '';
 
-  const handleCopyLink = async () => {
+  const handleCopySubscriberLink = async () => {
     try {
-      await navigator.clipboard.writeText(shareUrl);
+      await navigator.clipboard.writeText(subscriberUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
+    }
+  };
+
+  const handlePostUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUpdate.trim() || !page || !token) return;
+
+    setIsPosting(true);
+    setError('');
+
+    try {
+      const result = await postUpdate(pageId, newUpdate, token);
+
+      if (result.success) {
+        setNewUpdate('');
+        // Reload page to show new update
+        const pageResult = await getPage(pageId);
+        if (pageResult.success && pageResult.page) {
+          setPage(pageResult.page);
+        }
+      } else {
+        setError(result.error || 'Failed to post update');
+      }
+    } catch (err) {
+      console.error('Error posting update:', err);
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
+      setIsPosting(false);
     }
   };
 
@@ -137,18 +201,41 @@ export default function UpdatePage() {
   ];
 
   // Loading state
-  if (isLoadingPage) {
+  if (isLoadingPage || isValidatingToken) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center max-w-md px-4">
           <div className="w-16 h-16 mx-auto mb-4 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-muted-foreground">Loading page...</p>
+          <p className="text-muted-foreground">
+            {isValidatingToken ? 'Validating access...' : 'Loading page...'}
+          </p>
         </div>
       </div>
     );
   }
 
-  // Error state
+  // Token error state
+  if (tokenError) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center max-w-md px-4">
+          <div className="w-16 h-16 mx-auto mb-4 bg-destructive/10 rounded-full flex items-center justify-center">
+            <Lock className="w-8 h-8 text-destructive" />
+          </div>
+          <h1 className="text-3xl font-bold mb-4">Access Denied</h1>
+          <p className="text-muted-foreground mb-6">
+            {tokenError}. You need a valid publish token to post updates.
+          </p>
+          <Button onClick={() => router.push('/')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Go Home
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Page error state
   if (pageError || !page) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -182,6 +269,9 @@ export default function UpdatePage() {
                   <ArrowLeft className="w-5 h-5" />
                 </button>
                 <h1 className="text-2xl md:text-3xl font-bold truncate">{page.title}</h1>
+                <div className="px-2 py-1 bg-primary/10 text-primary text-xs font-medium rounded">
+                  Publisher
+                </div>
               </div>
               <p className="text-sm text-muted-foreground ml-8">
                 Created {formatTimestamp(page.createdAt)} • {page.updates.length} {page.updates.length === 1 ? 'update' : 'updates'}
@@ -190,7 +280,7 @@ export default function UpdatePage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={handleCopyLink}
+              onClick={handleCopySubscriberLink}
               className="gap-2 shrink-0"
             >
               {copied ? (
@@ -210,6 +300,40 @@ export default function UpdatePage() {
       </header>
 
       <div className="container mx-auto px-4 py-8 max-w-3xl">
+        {/* Post Update Form */}
+        <Card variant="elevated" className="mb-8">
+          <form onSubmit={handlePostUpdate} className="space-y-4">
+            <div>
+              <Textarea
+                placeholder="Share an update..."
+                value={newUpdate}
+                onChange={(e) => {
+                  setNewUpdate(e.target.value);
+                  setError('');
+                }}
+                aria-label="Write your update"
+                className="min-h-[100px]"
+                maxLength={VALIDATION.UPDATE_CONTENT.MAX_LENGTH}
+                error={error}
+              />
+              <p className="text-xs text-muted-foreground mt-1.5 text-right">
+                {newUpdate.length}/{VALIDATION.UPDATE_CONTENT.MAX_LENGTH}
+              </p>
+            </div>
+            <div className="flex justify-between items-center flex-wrap gap-2">
+              <p className="text-sm text-muted-foreground">
+                Updates are visible to anyone with the link
+              </p>
+              <Button
+                type="submit"
+                disabled={!newUpdate.trim() || isPosting}
+              >
+                {isPosting ? 'Posting...' : 'Post Update'}
+              </Button>
+            </div>
+          </form>
+        </Card>
+
         {/* Updates Timeline */}
         <div className="space-y-6">
           <div className="flex items-center gap-3 mb-6">
@@ -226,7 +350,7 @@ export default function UpdatePage() {
                 <MessageCircle className="w-8 h-8 text-muted-foreground" />
               </div>
               <p className="text-muted-foreground text-lg mb-2">No updates yet</p>
-              <p className="text-muted-foreground text-sm">Check back soon for updates!</p>
+              <p className="text-muted-foreground text-sm">Post the first update to get started!</p>
             </div>
           ) : (
             page.updates.map((update, index) => (
