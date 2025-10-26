@@ -37,11 +37,11 @@
 ### Step 4: Configure Your App (1 minute)
 
 1. In your project root, create a file called `.env.local`
-2. Add these two lines (replace with YOUR actual values):
+2. (replace with YOUR actual values):
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
 ```
 
 3. Save the file
