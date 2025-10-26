@@ -172,8 +172,8 @@ export default function Home() {
             <Card className="mt-8 bg-warning/5 border-warning/20">
               <CardContent className="pt-6">
                 <p className="text-sm text-warning-foreground">
-                  <strong>Important:</strong> Save your publisher URL now! You won't be able to retrieve it later.
-                  If you lose it, you won't be able to post new updates.
+                  <strong>Important:</strong> Save your publisher URL now! You won&apos;t be able to retrieve it later.
+                  If you lose it, you won&apos;t be able to post new updates.
                 </p>
               </CardContent>
             </Card>
@@ -283,38 +283,47 @@ export default function Home() {
           </div>
 
           {/* Use Cases */}
-          <div className="bg-muted/50 rounded-2xl p-8 md:p-12">
-            <h2 className="text-2xl font-semibold mb-6 text-center">Perfect For</h2>
-            <ul className="space-y-4 max-w-2xl mx-auto">
-              <li className="flex items-start gap-3">
-                <div className="w-6 h-6 mt-0.5 bg-success text-success-foreground rounded-full flex items-center justify-center shrink-0">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          <div className="bg-muted/50 rounded-xl sm:rounded-2xl p-6 sm:p-8 md:p-10 lg:p-12">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-semibold mb-8 sm:mb-10 md:mb-12 text-center">Perfect For</h2>
+            <ul className="flex flex-col lg:flex-row gap-6 sm:gap-8 lg:gap-8 xl:gap-10 max-w-6xl mx-auto">
+              <li className="flex flex-col items-center lg:items-start text-center lg:text-left flex-1">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 mb-4 sm:mb-5 bg-success text-success-foreground rounded-full flex items-center justify-center shrink-0 shadow-sm">
+                  <svg className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <span className="text-foreground">
-                  <strong>Medical recovery:</strong> Share progress with family without managing dozens of text threads
-                </span>
+                <div className="space-y-2 sm:space-y-3">
+                  <h3 className="text-base sm:text-lg md:text-xl font-semibold text-foreground">Medical recovery</h3>
+                  <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+                    Share progress with family without managing dozens of text threads
+                  </p>
+                </div>
               </li>
-              <li className="flex items-start gap-3">
-                <div className="w-6 h-6 mt-0.5 bg-success text-success-foreground rounded-full flex items-center justify-center shrink-0">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              <li className="flex flex-col items-center lg:items-start text-center lg:text-left flex-1">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 mb-4 sm:mb-5 bg-success text-success-foreground rounded-full flex items-center justify-center shrink-0 shadow-sm">
+                  <svg className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <span className="text-foreground">
-                  <strong>Prayer requests:</strong> Broadcast needs to your community without reply pressure
-                </span>
+                <div className="space-y-2 sm:space-y-3">
+                  <h3 className="text-base sm:text-lg md:text-xl font-semibold text-foreground">Prayer requests</h3>
+                  <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+                    Broadcast needs to your community without reply pressure
+                  </p>
+                </div>
               </li>
-              <li className="flex items-start gap-3">
-                <div className="w-6 h-6 mt-0.5 bg-success text-success-foreground rounded-full flex items-center justify-center shrink-0">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              <li className="flex flex-col items-center lg:items-start text-center lg:text-left flex-1">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 mb-4 sm:mb-5 bg-success text-success-foreground rounded-full flex items-center justify-center shrink-0 shadow-sm">
+                  <svg className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <span className="text-foreground">
-                  <strong>Important announcements:</strong> Keep everyone informed when you're too overwhelmed to chat
-                </span>
+                <div className="space-y-2 sm:space-y-3">
+                  <h3 className="text-base sm:text-lg md:text-xl font-semibold text-foreground">Important announcements</h3>
+                  <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+                    Keep everyone informed when you&apos;re too overwhelmed to chat
+                  </p>
+                </div>
               </li>
             </ul>
           </div>
